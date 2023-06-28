@@ -1,0 +1,13 @@
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --baud 920000 --flash-freq 80mhz --flash-size 16mb --monitor "
+
+[build]
+rustflags = [
+  "-C", "link-arg=-Tlinkall.x",
+  "-C", "link-arg=-nostartfiles",
+]
+
+target = "xtensa-esp32s3-none-elf"
+
+[unstable]
+build-std = ["alloc", "core"]
