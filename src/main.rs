@@ -4,11 +4,11 @@
 #[macro_use]
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, rc::Rc, vec::Vec};
 
 use esp_backtrace as _;
-use esp_println::println;
 use esp_println::logger::init_logger;
+use esp_println::println;
 
 mod bin_file;
 
@@ -26,25 +26,11 @@ use log::info;
 static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
 
 fn init_heap() {
-    const HEAP_SIZE: usize = 100 * 1024;
-
-    extern "C" {
-        // static mut _heap_start: u32;
-        // static mut _heap_end: u32;
-        static mut _heap_start: u32;
-        static mut _heap_end: u32;
-    }
+    const HEAP_SIZE: usize = 200 * 1024;
+    static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
     unsafe {
-        let heap_start = &_heap_start as *const _ as usize;
-        let heap_end = &_heap_end as *const _ as usize;
-        println!("heap_start:{:x},heap_end:{:x}", heap_start, heap_end);
-        println!("heap_size:{}", heap_end - heap_start);
-        assert!(
-            heap_end - heap_start > HEAP_SIZE,
-            "Not enough available heap memory."
-        );
-        ALLOCATOR.init(heap_start as *mut u8, heap_end - heap_start);
+        ALLOCATOR.init(HEAP.as_mut_ptr(), HEAP_SIZE);
     }
 }
 
@@ -67,7 +53,6 @@ use rv64emu::{
     rvsim::RVsim,
     tools::{fifo_unbounded_new, rc_refcell_new},
 };
-
 
 #[entry]
 fn main() -> ! {
@@ -108,15 +93,20 @@ fn main() -> ! {
     // // 2. shared by all harts
 
     let bus_u = rc_refcell_new(Bus::new());
-    // bus_u.borrow_mut()
 
-    // device dram len:0X08000000
+    let mut config = rv64emu::config::Config::new();
+    config.set_tlb_size(16);
+    config.set_icache_size(0);
+    config.set_decode_cache_size(1024 + 512);
+    config.set_mmu_type("sv39"); // sv39 sv48 sv57
+    config.set_isa("rv64imac");
+    let config = Rc::new(config);
 
     // create hart0 with smode support, some additional features are as follows
     // 1. the first instruction is executed at 0x8000_0000
     // 2. hart0 id is 0
     // 3. smode is enabled
-    let mut hart0 = CpuCoreBuild::new(bus_u.clone())
+    let mut hart0 = CpuCoreBuild::new(bus_u.clone(), config)
         .with_boot_pc(0x8000_0000)
         .with_hart_id(0)
         .with_smode(true)
@@ -179,9 +169,11 @@ fn main() -> ! {
     let mut sim = RVsim::new(harts_vec);
 
     sim.load_image_from_slice(bin_file::LINUX_FILE);
+    info!("heap_free: {}", ALLOCATOR.free());
 
     loop {
         sim.run_once();
+
         if let Ok(c) = serial0.read() {
             uart0_rx_fifo.push(c)
         }

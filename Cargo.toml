@@ -7,13 +7,11 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 
-esp32s3_hal = { git = "https://github.com/esp-rs/esp-hal", package = "esp32s3-hal", branch = "main", features = [
-    "opsram_8m",
-] }
 
+esp32s3-hal = { package = "esp32s3-hal",version = "0.11.0",features = ["opsram_8m"] }
 
 esp-alloc = "0.3.0"
-esp-println = { version = "0.4.0", features = ["esp32s3", "log"] }
+esp-println = { version = "0.5.0", features = ["esp32s3", "log"] }
 
 esp-backtrace = { version = "0.7.0", features = [
     "esp32s3",
@@ -22,13 +20,9 @@ esp-backtrace = { version = "0.7.0", features = [
     "print-uart",
 ] }
 
+log = "0.4.18"
+rv64emu = { version = "0.1.1", default_features = false, features = ["alloc"] }
 
-log = "0.4.17"
-
-rv64emu = { git = "https://github.com/leesum1/RV64emu-rs", package = "rv64emu", branch = "master", default-features = false, features = [
-    "default_isa",
-    # "decode_cache",
-] }
 
 # The default release profile. It contains all optimizations, without
 # sacrificing debug info. With this profile (like in the standard
